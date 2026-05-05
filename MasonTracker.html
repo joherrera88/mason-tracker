@@ -28,80 +28,73 @@ const tday=()=>{const n=new Date();return n.getFullYear()+"-"+String(n.getMonth(
 
 // ── BIS EMAIL PARSER ──────────────────────────────────────────────────────────
 function parseBISEmail(text){
-  const lines=text.split("\n").map(l=>l.trim()).filter(Boolean);
+  const lines=text.split("\n").map(l=>l.trim());
   const records=[];
   let uid=Date.now();
   let i=0;
 
-  // Find where client records start (after the intro paragraph)
+  function isPolicyLine(line){
+    const parts=line.split(" - ");
+    return parts.length>=3&&parts.some(p=>/\d{6,}/.test(p));
+  }
+
+  function isChangeLine(line){
+    const l=line.toLowerCase();
+    return l.includes("from")&&l.includes("to")||l.includes("reduced")||l.includes("increased")||l.includes("changed")||l.includes("amended")||l.includes("status")||l.includes("inception")||l.includes("premium")||l.includes("lapsed")||l.includes("surrender");
+  }
+
+  function classifyStatus(content){
+    const c=content.toLowerCase();
+    const livePatterns=["status changed from in force to lapsed","out of force","lapsed","surrender","proposal to prem paying","proposal to single premium","pending to active","not yet in force","status changed from proposal","status changed from in force to not","to out of force"];
+    for(const p of livePatterns){if(c.includes(p))return["Live","?"];}
+    const completePatterns=["reduced from","increased from","premium changed","premium change","policy inception date","inception date amended","inception date changed","payment method"];
+    for(const p of completePatterns){if(c.includes(p))return["Complete","None"];}
+    return["Live","?"];
+  }
+
+  function nextNonEmpty(from){
+    for(let k=from;k<lines.length;k++){if(lines[k])return lines[k];}
+    return"";
+  }
+
   while(i<lines.length){
-    const l=lines[i];
-    // Skip header lines
-    if(l.startsWith("Hi ")||l.startsWith("The following")||l.startsWith("BIS Platform")||l.includes("noreply@")||l.includes("data changes")){i++;continue;}
-    
-    // Check if this line looks like a client name (bold lines in email = just text here)
-    // Client name line: no dash, no numbers, not a change description
-    const nextLine=lines[i+1]||"";
-    const isClientName=!l.includes(" - ")&&!l.includes("from")&&!l.includes("to")&&nextLine.includes(" - ")&&/^[A-Z]/.test(l);
-    
-    if(isClientName){
-      const clientName=l.trim();
-      i++;
-      
-      // Next line: Company - PolicyNumber - PolicyType
+    const line=lines[i];
+    if(!line){i++;continue;}
+    if(/^(hi |the following|bis platform|noreply|data changes|recorded in|follow up|completed on)/i.test(line)){i++;continue;}
+
+    // Check if the next non-empty line is a policy line -> this line is a client name
+    let j=i+1;
+    while(j<lines.length&&!lines[j])j++;
+    const nxt=lines[j]||"";
+
+    if(nxt&&isPolicyLine(nxt)){
+      const clientName=line;
+      i=j; // move to policy line
+
       const policyLine=lines[i]||"";
-      const pParts=policyLine.split(" - ");
-      const company=pParts[0]||"";
-      const policy=pParts[1]||"";
-      const policyType=pParts.slice(2).join(" - ")||"";
+      const parts=policyLine.split(" - ").map(p=>p.trim());
+      const company=parts[0]||"";
+      const policy=parts[1]||"";
+      const policyType=parts.slice(2).join(" - ")||"";
       i++;
-      
-      // Collect change lines until next client name or end
+
+      // Collect change lines until next client name
       const changeLines=[];
       while(i<lines.length){
-        const cl=lines[i];
-        const nl=lines[i+1]||"";
-        const isNext=!cl.includes(" - ")&&!cl.includes("from")&&!cl.includes("to")&&nl.includes(" - ")&&/^[A-Z]/.test(cl)&&cl.split(" ").length<=4;
-        if(isNext)break;
-        if(cl.includes(" - ")&&!cl.includes("from")&&!cl.includes("to")&&nl.includes(" - "))break;
+        const cl=lines[i].trim();
+        if(!cl){i++;continue;}
+        // Peek ahead to see if next non-empty is a policy line (meaning cl is a client name)
+        const nxtNE=nextNonEmpty(i+1);
+        if(isPolicyLine(nxtNE)&&!isChangeLine(cl)){break;}
         changeLines.push(cl);
         i++;
       }
-      
+
       const content=policyType+(changeLines.length?("\n"+changeLines.join("\n")):"");
-      
-      // Determine status based on content
-      const contentLower=content.toLowerCase();
-      const isSimpleChange=
-        (contentLower.includes("reduced from")||contentLower.includes("increased from"))&&
-        !contentLower.includes("status changed")&&
-        !contentLower.includes("lapsed")&&
-        !contentLower.includes("surrender")&&
-        !contentLower.includes("out of force")&&
-        !contentLower.includes("not yet in force")&&
-        !contentLower.includes("proposal")&&
-        !contentLower.includes("pending")&&
-        !contentLower.includes("inception");
-      
-      const status=isSimpleChange?"Complete":"Live";
-      const action=isSimpleChange?"None":"?";
-      
-      // Flag incomplete name (single word = just surname)
-      const incomplete=clientName.split(" ").length===1;
-      
-      records.push({
-        id:uid++,
-        date:tday(),
-        source:"BIS",
-        company:company.trim(),
-        client:clientName,
-        policy:policy.trim(),
-        adviser:"",
-        content:content.trim(),
-        action:action,
-        status:status,
-        incomplete:incomplete
-      });
+      const[status,action]=classifyStatus(content);
+      const incomplete=clientName.trim().split(/\s+/).length===1;
+
+      records.push({id:uid++,date:tday(),source:"BIS",company,client:clientName,policy,adviser:"",content:content.trim(),action,status,incomplete});
     } else {
       i++;
     }
