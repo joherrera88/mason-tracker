@@ -339,7 +339,15 @@ function App(){
   const saveIn=()=>{if(!inEd)return;setData(prev=>prev.map(r=>r.id===inEd.id?{...r,[inEd.field]:inVal}:r));setInEd(null);};
   const clear=()=>{setSearch("");setFCo("All");setFAdv("All");setFSrc("All");setFStat("All");setFDate("All");};
   const handleExport=async()=>{try{await exportToExcel(data);showT("Exported successfully");}catch(e){showT("Export failed: "+e.message,"#dc2626");}};
-  const resetToSeed=()=>{if(confirm("Clear all saved changes and reload original data?")){localStorage.removeItem(STORAGE_KEY);setData(SEED);showT("Reset to original data");}};
+  const clearToday=()=>{
+    const today=tday();
+    const todayCount=data.filter(r=>r.date===today).length;
+    if(todayCount===0){showT("No records from today to clear","#64748b");return;}
+    if(confirm("Remove "+todayCount+" records added today ("+fmt(today)+")? This cannot be undone.")){
+      setData(prev=>prev.filter(r=>r.date!==today));
+      showT("Cleared "+todayCount+" records from today");
+    }
+  };
   const tabs=[{id:"live",label:"Live",count:live.length,warn:true},{id:"reinstate",label:"Reinstatements",count:reinstate.length,warn:reinstate.length>0},{id:"today",label:"Today",count:todayR.length},{id:"all",label:"All Records",count:data.length}];
   const savedStr=lastSaved?"Saved "+lastSaved.getHours().toString().padStart(2,"0")+":"+lastSaved.getMinutes().toString().padStart(2,"0"):"";
 
@@ -388,7 +396,7 @@ function App(){
           <div key={label} style={{marginBottom:7}}><div style={{fontSize:10,color:"#64748b",marginBottom:2,fontWeight:600}}>{label}</div><select value={val} onChange={e=>setter(e.target.value)} style={{width:"100%",padding:"5px 6px",fontSize:11,border:"1px solid #e2e8f0",borderRadius:5,color:"#1e293b",background:"#fff",outline:"none"}}>{opts.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
         )}
         <button onClick={clear} style={{width:"100%",padding:"5px",fontSize:11,fontWeight:600,borderRadius:5,border:"1px solid #e2e8f0",cursor:"pointer",background:"#f8fafc",color:"#64748b",marginBottom:8}}>Clear Filters</button>
-        <button onClick={resetToSeed} style={{width:"100%",padding:"5px",fontSize:10,borderRadius:5,border:"1px solid #fecaca",cursor:"pointer",background:"#fff",color:"#ef4444",marginBottom:12}}>Reset saved data</button>
+        <button onClick={clearToday} style={{width:"100%",padding:"5px",fontSize:10,borderRadius:5,border:"1px solid #fecaca",cursor:"pointer",background:"#fff",color:"#ef4444",marginBottom:12}}>Clear today's records</button>
         <div style={{fontSize:9,color:"#94a3b8",textTransform:"uppercase",letterSpacing:2,marginBottom:6,fontWeight:700}}>By Company</div>
         {byCo.map(([co,st])=><div key={co} onClick={()=>setFCo(co)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"3px 6px",borderRadius:4,marginBottom:1,cursor:"pointer",fontSize:10,background:fCo===co?"#eff6ff":"transparent",color:fCo===co?"#1d4ed8":"#475569"}}><span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",flexShrink:0,background:CC[co]||"#888"}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:100}}>{co}</span></span><span style={{display:"flex",gap:3}}>{st.l>0&&<span style={{background:"#fef3c7",color:"#92400e",borderRadius:8,padding:"0 4px",fontWeight:700,fontSize:9}}>{st.l}</span>}<span style={{color:"#94a3b8"}}>{st.t}</span></span></div>)}
       </div>
