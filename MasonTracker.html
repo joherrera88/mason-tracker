@@ -7,10 +7,52 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;}</style>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;}
+#login-screen{position:fixed;inset:0;background:#0f2044;display:flex;align-items:center;justify-content:center;z-index:99999;}
+#login-box{background:#fff;borderRadius:12px;padding:40px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.4);text-align:center;}
+</style>
 </head>
 <body>
-<div id="root"></div>
+<div id="login-screen">
+  <div style="background:#fff;border-radius:12px;padding:40px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.4);text-align:center;">
+    <div style="font-size:10px;color:#8aabcf;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;">Mason Wealth Management</div>
+    <div style="font-size:20px;font-weight:700;color:#0f2044;margin-bottom:4px;">Correspondence Tracker</div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:28px;">Internal use only</div>
+    <input id="pwd-input" type="password" placeholder="Enter password" style="width:100%;box-sizing:border-box;padding:12px 14px;font-size:14px;border:2px solid #e2e8f0;border-radius:8px;outline:none;color:#1e293b;margin-bottom:10px;text-align:center;" onkeydown="if(event.key==='Enter')checkPwd()"/>
+    <div id="pwd-error" style="color:#ef4444;font-size:12px;margin-bottom:10px;display:none;">Incorrect password. Please try again.</div>
+    <button onclick="checkPwd()" style="width:100%;padding:12px;background:#0f2044;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Sign In</button>
+  </div>
+</div>
+<div id="root" style="display:none;"></div>
+<script>
+const HASH="2495704cda2eeadad5a9e494116f2257f2f33144ad2eeecf50bd0429824fdce0";
+async function sha256(msg){
+  const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function checkPwd(){
+  const val=document.getElementById("pwd-input").value;
+  const h=await sha256(val);
+  if(h===HASH){
+    sessionStorage.setItem("mwm_auth","1");
+    document.getElementById("login-screen").style.display="none";
+    document.getElementById("root").style.display="block";
+  } else {
+    document.getElementById("pwd-error").style.display="block";
+    document.getElementById("pwd-input").value="";
+    document.getElementById("pwd-input").focus();
+  }
+}
+// Check if already authenticated this session
+window.addEventListener("DOMContentLoaded",()=>{
+  if(sessionStorage.getItem("mwm_auth")==="1"){
+    document.getElementById("login-screen").style.display="none";
+    document.getElementById("root").style.display="block";
+  } else {
+    document.getElementById("pwd-input").focus();
+  }
+});
+</script>
 <script type="text/babel">
 const{useState,useMemo,useRef,useEffect}=React;
 const STORAGE_KEY="mason_tracker_data_v4";
