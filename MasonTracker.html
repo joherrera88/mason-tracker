@@ -339,6 +339,19 @@ function App(){
   const saveIn=()=>{if(!inEd)return;setData(prev=>prev.map(r=>r.id===inEd.id?{...r,[inEd.field]:inVal}:r));setInEd(null);};
   const clear=()=>{setSearch("");setFCo("All");setFAdv("All");setFSrc("All");setFStat("All");setFDate("All");};
   const handleExport=async()=>{try{await exportToExcel(data);showT("Exported successfully");}catch(e){showT("Export failed: "+e.message,"#dc2626");}};
+  const endOfDay=async()=>{
+    if(!confirm("End of Day: This will download your Excel file and then clear all data from the dashboard. Are you sure?")){return;}
+    try{
+      await exportToExcel(data);
+      setTimeout(()=>{
+        localStorage.removeItem(STORAGE_KEY);
+        setData([]);
+        showT("Day closed. Import your Excel file tomorrow to resume.");
+      },1500);
+    }catch(e){
+      showT("Export failed - data not cleared: "+e.message,"#dc2626");
+    }
+  };
   const clearToday=()=>{
     const today=tday();
     const todayCount=data.filter(r=>r.date===today).length;
@@ -368,6 +381,7 @@ function App(){
         <button onClick={()=>setShowBIS(true)} style={{background:"#7c3aed",color:"#fff",border:"none",padding:"7px 12px",borderRadius:6,cursor:"pointer",fontWeight:700,fontSize:11}}>Paste BIS</button>
         <button onClick={()=>setShowPost(true)} style={{background:"#0369a1",color:"#fff",border:"none",padding:"7px 12px",borderRadius:6,cursor:"pointer",fontWeight:700,fontSize:11}}>+ Post</button>
         <button onClick={handleExport} style={{background:"#16a34a",color:"#fff",border:"none",padding:"7px 12px",borderRadius:6,cursor:"pointer",fontWeight:700,fontSize:11}}>Export Excel</button>
+        <button onClick={endOfDay} style={{background:"#dc2626",color:"#fff",border:"none",padding:"7px 12px",borderRadius:6,cursor:"pointer",fontWeight:700,fontSize:11}}>End of Day</button>
         <button onClick={()=>{setShowImp(true);setImpPrev(null);}} style={{background:"#c9a84c",color:"#0f2044",border:"none",padding:"7px 12px",borderRadius:6,cursor:"pointer",fontWeight:700,fontSize:11}}>Import Excel</button>
       </div>
     </div>
